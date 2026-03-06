@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import { copyFileSync } from "fs";
 
 const banner =
 `/*
@@ -42,6 +43,9 @@ const context = await esbuild.context({
 
 if (prod) {
 	await context.rebuild();
+	// Copy CSS file
+	copyFileSync('src/styles.css', 'styles.css');
+	console.log('✓ styles.css copied from src/');
 	process.exit(0);
 } else {
 	await context.watch();
