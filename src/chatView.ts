@@ -12,6 +12,15 @@ export class IFlowChatView extends ItemView {
 	private currentMessage = '';
 	private isStreaming = false;
 
+	// Settings
+	private currentModel = 'glm-4.7';
+	private currentMode = 'default';
+	private thinkingEnabled = false;
+
+	// Available models and modes from iFlow CLI
+	private availableModels: any[] = [];
+	private availableModes: any[] = [];
+
 	constructor(leaf: WorkspaceLeaf, plugin: IFlowPlugin, iflowService: IFlowService) {
 		super(leaf);
 		this.plugin = plugin;
@@ -45,15 +54,33 @@ export class IFlowChatView extends ItemView {
 		// Input container
 		const inputContainer = chatContainer.createDiv({ cls: 'iflow-input-container' });
 
+		// Input nav row (model selector, mode selector, thinking toggle)
+		const navRow = inputContainer.createDiv({ cls: 'iflow-input-nav-row' });
+
+		// Left side: Model selector
+		const modelSelector = this.createModelSelector(navRow);
+
+		// Right side: Mode selector and thinking toggle
+		const rightControls = navRow.createDiv({ cls: 'iflow-input-controls-right' });
+		rightControls.style.display = 'flex';
+		rightControls.style.gap = '8px';
+		rightControls.style.alignItems = 'center';
+
+		const modeSelector = this.createModeSelector(rightControls);
+		const thinkingToggle = this.createThinkingToggle(rightControls);
+
+		// Input wrapper
+		const inputWrapper = inputContainer.createDiv({ cls: 'iflow-input-wrapper' });
+
 		// Textarea for input
-		const textarea = inputContainer.createEl('textarea', {
+		const textarea = inputWrapper.createEl('textarea', {
 			cls: 'iflow-input',
 			attr: { placeholder: 'Ask iFlow anything... (Use @ to reference files, Shift+Enter for new line)' },
 		});
 		this.textarea = textarea;
 
 		// Send button
-		const sendButton = inputContainer.createEl('button', {
+		const sendButton = inputWrapper.createEl('button', {
 			cls: 'iflow-send-button',
 			text: 'Send',
 		});
@@ -78,7 +105,7 @@ export class IFlowChatView extends ItemView {
 		);
 
 		// Add welcome message
-		this.addMessage('assistant', 'Hello! I\'m iFlow, your AI assistant. I can help you with:\n\n• Reading and editing your notes\n• Searching your vault\n• Running commands\n• Answering questions\n\nHow can I help you today?');
+		this.addWelcomeMessage();
 	}
 
 	async onClose() {
@@ -208,6 +235,154 @@ export class IFlowChatView extends ItemView {
 
 	private scrollToBottom(): void {
 		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+	}
+
+	// ============================================
+	// UI Component Creators
+	// ============================================
+
+	private addWelcomeMessage(): void {
+		this.messagesContainer.createDiv({
+			cls: 'iflow-welcome',
+		}, (el) => {
+			el.createEl('h2', { text: '👋 Welcome to iFlow!' });
+			el.createEl('p', { text: 'Your AI-powered coding assistant for Obsidian.' });
+			el.createEl('p', { text: 'I can help you with:' });
+			el.createEl('p', { text: '• Reading and editing your notes' });
+			el.createEl('p', { text: '• Searching your vault' });
+			el.createEl('p', { text: '• Writing and refactoring code' });
+			el.createEl('p', { text: '• Answering questions' });
+			el.createEl('p', { text: '\nSelect a model and mode above, then start typing!' });
+		});
+	}
+
+	private createModelSelector(container: HTMLElement): HTMLElement {
+		const selector = container.createDiv({ cls: 'iflow-model-selector' });
+
+		// Default models list (will be updated from iFlow CLI)
+		const defaultModels = [
+			{ id: 'glm-4.7', name: 'GLM-4.7' },
+			{ id: 'glm-5', name: 'GLM-5' },
+			{ id: 'deepseek-v3.2-chat', name: 'DeepSeek-V3.2' },
+			{ id: 'qwen3-coder-plus', name: 'Qwen3-Coder-Plus' },
+		];
+
+		this.availableModels = defaultModels;
+
+		// Button
+		const btn = selector.createEl('button', {
+			cls: 'iflow-model-btn ready',
+		});
+
+		const label = btn.createSpan({ cls: 'iflow-model-label', text: this.currentModel });
+		const chevron = btn.createDiv({ cls: 'iflow-model-chevron' });
+		chevron.innerHTML = `
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<polyline points="6 9 12 15 18 9"></polyline>
+			</svg>
+		`;
+
+		// Dropdown
+		const dropdown = selector.createDiv({ cls: 'iflow-model-dropdown' });
+
+		this.availableModels.forEach(model => {
+			dropdown.createDiv({
+				cls: `iflow-model-option ${model.id === this.currentModel ? 'selected' : ''}`,
+				text: model.name,
+			}, (el) => {
+				el.onclick = () => {
+					this.currentModel = model.id;
+					label.textContent = model.name;
+					dropdown.querySelectorAll('.iflow-model-option').forEach(opt => {
+						opt.removeClass('selected');
+					});
+					el.addClass('selected');
+				};
+			});
+		});
+
+		return selector;
+	}
+
+	private createModeSelector(container: HTMLElement): HTMLElement {
+		const selector = container.createDiv({ cls: 'iflow-mode-selector' });
+
+		// Modes list
+		const modes = [
+			{ id: 'default', name: 'Normal', icon: '⚡' },
+			{ id: 'yolo', name: 'YOLO', icon: '🚀' },
+			{ id: 'smart', name: 'Smart', icon: '🧠' },
+			{ id: 'plan', name: 'Plan', icon: '📋' },
+		];
+
+		this.availableModes = modes;
+
+		// Current mode label
+		const currentMode = modes.find(m => m.id === this.currentMode);
+		const label = selector.createSpan({
+			cls: 'iflow-mode-label',
+			text: currentMode?.name || 'Normal'
+		});
+
+		const icon = selector.createSpan({
+			text: currentMode?.icon || '⚡'
+		});
+
+		// Dropdown
+		const dropdown = selector.createDiv({ cls: 'iflow-mode-dropdown' });
+
+		modes.forEach(mode => {
+			dropdown.createDiv({
+				cls: `iflow-mode-option ${mode.id === this.currentMode ? 'selected' : ''}`,
+				attr: { 'data-mode': mode.id },
+			}, (el) => {
+				el.createSpan({ cls: 'iflow-mode-icon', text: mode.icon });
+				el.createSpan({ text: mode.name });
+				el.onclick = () => {
+					this.currentMode = mode.id;
+					label.textContent = mode.name;
+					icon.textContent = mode.icon;
+					dropdown.querySelectorAll('.iflow-mode-option').forEach(opt => {
+						opt.removeClass('selected');
+					});
+					el.addClass('selected');
+				};
+			});
+		});
+
+		return selector;
+	}
+
+	private createThinkingToggle(container: HTMLElement): HTMLElement {
+		const toggle = container.createEl('button', {
+			cls: 'iflow-thinking-toggle',
+		});
+
+		const icon = toggle.createSpan({ cls: 'iflow-thinking-icon', text: '🧠' });
+		const label = toggle.createSpan({ text: 'Thinking' });
+
+		toggle.onclick = () => {
+			this.thinkingEnabled = !this.thinkingEnabled;
+			toggle.toggleClass('active', this.thinkingEnabled);
+		};
+
+		return toggle;
+	}
+
+	// ============================================
+	// Update available options from iFlow CLI
+	// ============================================
+
+	updateAvailableModels(models: any[]): void {
+		this.availableModels = models;
+		// Rebuild model selector UI
+		// TODO: Implement UI refresh
+	}
+
+	updateAvailableModes(modes: any[]): void {
+		this.availableModes = modes;
+		// Rebuild mode selector UI
+		// TODO: Implement UI refresh
 	}
 
 	// Properties for type safety

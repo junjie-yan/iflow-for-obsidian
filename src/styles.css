@@ -1,0 +1,732 @@
+/* iFlow for Obsidian - Styles inspired by Claudian */
+
+/* ============================================
+   Variables
+============================================ */
+:root {
+	--iflow-brand: #7c4dff;
+	--iflow-brand-rgb: 124, 77, 255;
+	--iflow-error: #dc3545;
+	--iflow-success: #28a745;
+	--iflow-warning: #ffc107;
+}
+
+/* ============================================
+   Container Layout
+============================================ */
+.iflow-chat-container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--background-primary);
+	font-family: var(--font-interface);
+}
+
+/* ============================================
+   Context Indicator
+============================================ */
+.iflow-context-indicator {
+	padding: 8px 12px;
+	font-size: 12px;
+	color: var(--text-muted);
+	background: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.iflow-context-indicator:empty {
+	display: none;
+}
+
+/* ============================================
+   Messages Area
+============================================ */
+.iflow-messages {
+	flex: 1;
+	overflow-y: auto;
+	padding: 16px 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-height: 0;
+}
+
+/* Scrollbar styling */
+.iflow-messages::-webkit-scrollbar {
+	width: 6px;
+}
+
+.iflow-messages::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.iflow-messages::-webkit-scrollbar-thumb {
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+}
+
+.iflow-messages::-webkit-scrollbar-thumb:hover {
+	background: var(--background-modifier-border-hover);
+}
+
+/* ============================================
+   Welcome Message
+============================================ */
+.iflow-welcome {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	padding: 40px 20px;
+	min-height: 200px;
+}
+
+.iflow-welcome h2 {
+	font-family: var(--font-interface);
+	font-size: 24px;
+	font-weight: 500;
+	color: var(--text-normal);
+	margin: 0 0 12px 0;
+}
+
+.iflow-welcome p {
+	color: var(--text-muted);
+	font-size: 14px;
+	line-height: 1.6;
+	margin: 0 0 8px 0;
+	max-width: 400px;
+}
+
+/* ============================================
+   Message Bubbles
+============================================ */
+.iflow-message {
+	padding: 10px 14px;
+	border-radius: 8px;
+	max-width: 95%;
+	word-wrap: break-word;
+	animation: iflow-message-fade-in 0.2s ease-out;
+}
+
+@keyframes iflow-message-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* User message */
+.iflow-message-user {
+	position: relative;
+	background: linear-gradient(135deg, var(--iflow-brand) 0%, color-mix(in srgb, var(--iflow-brand) 85%, black) 100%);
+	color: white;
+	align-self: flex-end;
+	border-end-end-radius: 4px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Text selection in user messages */
+.iflow-message-user ::selection {
+	background: rgba(255, 255, 255, 0.35);
+	color: inherit;
+}
+
+/* Assistant message */
+.iflow-message-assistant {
+	background: transparent;
+	align-self: stretch;
+	width: 100%;
+	max-width: 100%;
+	border-end-start-radius: 4px;
+}
+
+/* Message role label */
+.iflow-message-role {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin-bottom: 6px;
+	opacity: 0.8;
+}
+
+.iflow-message-user .iflow-message-role {
+	color: rgba(255, 255, 255, 0.9);
+}
+
+.iflow-message-assistant .iflow-message-role {
+	color: var(--text-muted);
+}
+
+/* Message content */
+.iflow-message-content {
+	line-height: 1.6;
+	user-select: text;
+	-webkit-user-select: text;
+	unicode-bidi: plaintext;
+	word-break: break-word;
+}
+
+.iflow-message-user .iflow-message-content {
+	color: white;
+}
+
+.iflow-message-assistant .iflow-message-content {
+	color: var(--text-normal);
+}
+
+/* ============================================
+   Markdown Styling in Messages
+============================================ */
+.iflow-message-content p {
+	margin: 0 0 8px 0;
+}
+
+.iflow-message-content p:last-child {
+	margin-bottom: 0;
+}
+
+.iflow-message-content ul,
+.iflow-message-content ol {
+	margin: 8px 0;
+	padding-inline-start: 24px;
+}
+
+.iflow-message-content li {
+	margin: 4px 0;
+}
+
+.iflow-message-content code {
+	background: rgba(0, 0, 0, 0.1);
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-family: var(--font-monospace);
+	font-size: 0.9em;
+}
+
+.iflow-message-user .iflow-message-content code {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+.iflow-message-content pre {
+	background: var(--background-secondary);
+	padding: 12px;
+	border-radius: 6px;
+	overflow-x: auto;
+	margin: 8px 0;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.iflow-message-content pre code {
+	background: transparent;
+	padding: 0;
+}
+
+.iflow-message-content strong {
+	font-weight: 600;
+}
+
+.iflow-message-content em {
+	font-style: italic;
+}
+
+/* Tables */
+.iflow-message-content table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 8px 0;
+	font-size: 13px;
+}
+
+.iflow-message-content th,
+.iflow-message-content td {
+	border: 1px solid var(--background-modifier-border);
+	padding: 6px 10px;
+	text-align: start;
+}
+
+.iflow-message-content th {
+	background: var(--background-secondary);
+	font-weight: 600;
+}
+
+.iflow-message-content tr:hover {
+	background: var(--background-secondary-alt);
+}
+
+/* ============================================
+   Input Area
+============================================ */
+.iflow-input-container {
+	position: relative;
+	padding: 12px;
+	background: var(--background-primary);
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Input nav row (model selector, mode selector) */
+.iflow-input-nav-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 0 8px 0;
+	min-height: 0;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+/* Input wrapper */
+.iflow-input-wrapper {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	min-height: 80px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-primary);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.iflow-input-wrapper:focus-within {
+	border-color: var(--iflow-brand);
+	box-shadow: 0 0 0 2px rgba(var(--iflow-brand-rgb), 0.1);
+}
+
+/* ============================================
+   Model Selector
+============================================ */
+.iflow-model-selector {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.iflow-model-btn {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: 12px;
+	transition: color 0.2s ease;
+	background: transparent;
+	border: none;
+}
+
+.iflow-model-btn:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.iflow-model-btn.ready {
+	color: var(--iflow-brand);
+}
+
+.iflow-model-label {
+	font-weight: 500;
+}
+
+.iflow-model-chevron {
+	display: flex;
+	align-items: center;
+}
+
+.iflow-model-chevron svg {
+	width: 12px;
+	height: 12px;
+}
+
+.iflow-model-dropdown {
+	position: absolute;
+	bottom: 100%;
+	left: 0;
+	margin-bottom: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
+	z-index: 1000;
+	width: max-content;
+	max-width: 300px;
+	padding: 4px;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.15s ease, visibility 0.15s ease;
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.iflow-model-selector:hover .iflow-model-dropdown,
+.iflow-model-dropdown:focus-within {
+	opacity: 1;
+	visibility: visible;
+}
+
+.iflow-model-option {
+	padding: 6px 10px;
+	cursor: pointer;
+	font-size: 12px;
+	color: var(--text-muted);
+	border-radius: 4px;
+	transition: background 0.1s ease, color 0.1s ease;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.iflow-model-option:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.iflow-model-option.selected {
+	background: rgba(var(--iflow-brand-rgb), 0.15);
+	color: var(--iflow-brand);
+	font-weight: 500;
+}
+
+.iflow-model-option .model-description {
+	font-size: 10px;
+	opacity: 0.7;
+	margin-left: 4px;
+}
+
+/* ============================================
+   Mode Selector (Permission Toggle)
+============================================ */
+.iflow-mode-selector {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 8px;
+	border-radius: 6px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.iflow-mode-label {
+	font-size: 11px;
+	color: var(--text-muted);
+	font-weight: 500;
+	min-width: 40px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.iflow-mode-selector.plan-active .iflow-mode-label {
+	color: #5c948c;
+	font-weight: 600;
+}
+
+.iflow-mode-dropdown {
+	position: absolute;
+	bottom: 100%;
+	right: 0;
+	margin-bottom: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
+	z-index: 1000;
+	width: max-content;
+	padding: 4px;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.iflow-mode-selector:hover .iflow-mode-dropdown,
+.iflow-mode-dropdown:focus-within {
+	opacity: 1;
+	visibility: visible;
+}
+
+.iflow-mode-option {
+	padding: 6px 10px;
+	cursor: pointer;
+	font-size: 12px;
+	color: var(--text-muted);
+	border-radius: 4px;
+	transition: background 0.1s ease, color 0.1s ease;
+	white-space: nowrap;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.iflow-mode-option:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.iflow-mode-option.selected {
+	background: rgba(var(--iflow-brand-rgb), 0.15);
+	color: var(--iflow-brand);
+	font-weight: 500;
+}
+
+.iflow-mode-icon {
+	width: 14px;
+	height: 14px;
+	opacity: 0.7;
+}
+
+/* Mode-specific colors */
+.iflow-mode-option[data-mode="yolo"] .iflow-mode-icon {
+	color: #dc3545;
+}
+
+.iflow-mode-option[data-mode="plan"] .iflow-mode-icon {
+	color: #5c948c;
+}
+
+.iflow-mode-option[data-mode="smart"] .iflow-mode-icon {
+	color: #60a5fa;
+}
+
+.iflow-mode-option[data-mode="default"] .iflow-mode-icon {
+	color: var(--iflow-brand);
+}
+
+/* Thinking toggle */
+.iflow-thinking-toggle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 11px;
+	color: var(--text-muted);
+	background: transparent;
+	border: 1px solid var(--background-modifier-border);
+	transition: all 0.2s ease;
+}
+
+.iflow-thinking-toggle:hover {
+	background: var(--background-modifier-hover);
+}
+
+.iflow-thinking-toggle.active {
+	color: var(--iflow-brand);
+	background: rgba(var(--iflow-brand-rgb), 0.1);
+	border-color: var(--iflow-brand);
+}
+
+.iflow-thinking-icon {
+	width: 14px;
+	height: 14px;
+}
+
+/* Textarea */
+.iflow-input {
+	width: 100%;
+	flex: 1 1 0;
+	min-height: 60px;
+	max-height: 200px;
+	resize: none;
+	padding: 10px 12px;
+	border: none !important;
+	background: transparent !important;
+	color: var(--text-normal);
+	font-family: inherit;
+	font-size: 14px;
+	line-height: 1.5;
+	box-shadow: none !important;
+	overflow-y: auto;
+	unicode-bidi: plaintext;
+}
+
+.iflow-input:hover,
+.iflow-input:focus {
+	outline: none !important;
+	border: none !important;
+	background: transparent !important;
+	box-shadow: none !important;
+}
+
+.iflow-input::placeholder {
+	color: var(--text-muted);
+	opacity: 0.7;
+}
+
+/* Send button */
+.iflow-send-button {
+	position: absolute;
+	bottom: 8px;
+	right: 8px;
+	padding: 6px 14px;
+	background: var(--iflow-brand);
+	color: white;
+	border: none;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.iflow-send-button:hover {
+	background: color-mix(in srgb, var(--iflow-brand) 85%, black);
+}
+
+.iflow-send-button:active {
+	transform: scale(0.98);
+}
+
+.iflow-send-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* ============================================
+   Streaming Indicator
+============================================ */
+.iflow-streaming-indicator {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	margin-left: 8px;
+	font-size: 12px;
+	color: var(--text-muted);
+	background: var(--background-secondary);
+	border-radius: 12px;
+	animation: iflow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes iflow-pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+.iflow-streaming-dot {
+	width: 6px;
+	height: 6px;
+	background: var(--iflow-brand);
+	border-radius: 50%;
+	animation: iflow-bounce 1.4s ease-in-out infinite;
+}
+
+.iflow-streaming-dot:nth-child(1) {
+	animation-delay: 0s;
+}
+
+.iflow-streaming-dot:nth-child(2) {
+	animation-delay: 0.15s;
+}
+
+.iflow-streaming-dot:nth-child(3) {
+	animation-delay: 0.3s;
+}
+
+@keyframes iflow-bounce {
+	0%, 60%, 100% {
+		transform: translateY(0);
+	}
+	30% {
+		transform: translateY(-4px);
+	}
+}
+
+/* ============================================
+   Error States
+============================================ */
+.iflow-error {
+	padding: 12px;
+	background: rgba(220, 53, 69, 0.1);
+	border: 1px solid var(--iflow-error);
+	border-radius: 6px;
+	color: var(--iflow-error);
+	font-size: 13px;
+	margin: 8px 0;
+}
+
+/* ============================================
+   Responsive Design
+============================================ */
+@media (max-width: 600px) {
+	.iflow-message {
+		max-width: 100%;
+	}
+
+	.iflow-welcome {
+		padding: 24px 16px;
+	}
+
+	.iflow-welcome h2 {
+		font-size: 20px;
+	}
+}
+
+/* ============================================
+   Accessibility
+============================================ */
+.iflow-message:focus-visible {
+	outline: 2px solid var(--iflow-brand);
+	outline-offset: 2px;
+}
+
+.iflow-send-button:focus-visible {
+	outline: 2px solid var(--iflow-brand);
+	outline-offset: 2px;
+}
+
+/* ============================================
+   Dark Mode Adjustments
+============================================ */
+.theme-dark .iflow-message-user {
+	background: linear-gradient(135deg, var(--iflow-brand) 0%, color-mix(in srgb, var(--iflow-brand) 80%, white) 100%);
+}
+
+.theme-dark .iflow-message-content code {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   Animations
+============================================ */
+.iflow-thinking {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 12px;
+	color: var(--text-muted);
+	font-size: 13px;
+	font-style: italic;
+}
+
+/* ============================================
+   Utility Classes
+============================================ */
+.iflow-hidden {
+	display: none !important;
+}
+
+.iflow-text-muted {
+	color: var(--text-muted);
+}
+
+.iflow-text-accent {
+	color: var(--iflow-brand);
+}
