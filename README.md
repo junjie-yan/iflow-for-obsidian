@@ -27,6 +27,8 @@
 
 - [开发文档](DEVELOPMENT.md) - 详细的开发指南和架构说明
 - [快速参考](CHEATSHEET.md) - 常用命令和代码片段速查
+- [智能体系统](AGENTS.md) - Agent 定义和使用指南
+- [AI 理解文档](CLAUDE.md) - 给 Claude AI 阅读的项目文档
 
 ## 🔄 更新日志
 
