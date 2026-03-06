@@ -38,7 +38,7 @@ export class IFlowService {
 
 	async checkConnection(): Promise<boolean> {
 		return new Promise((resolve) => {
-			const ws = new WebSocket(`ws://localhost:${this.port}`);
+			const ws = new WebSocket(`ws://localhost:${this.port}/acp`);
 
 			const timeoutId = setTimeout(() => {
 				ws.close();
@@ -65,7 +65,7 @@ export class IFlowService {
 				return;
 			}
 
-			this.ws = new WebSocket(`ws://localhost:${this.port}`);
+			this.ws = new WebSocket(`ws://localhost:${this.port}/acp`);
 
 			const timeoutId = setTimeout(() => {
 				this.ws?.close();
