@@ -308,7 +308,8 @@ export class IFlowService {
 					// Check for end signal - ACP sends task_finish or completion
 					if (update.sessionUpdate === 'task_finish' ||
 						update.status === 'done' ||
-						update.done) {
+						update.done ||
+						update.sessionUpdate === 'agent_turn_end') {
 						console.log('[iFlow] Task finished');
 						this.messageHandlers.forEach(handler => handler({
 							type: 'end',
@@ -447,7 +448,11 @@ export class IFlowService {
 
 			// Check if the response indicates completion
 			if (result?.stopReason === 'end_turn' || result?.stopReason === 'max_turns') {
-				console.log('[iFlow] Prompt completed');
+				console.log('[iFlow] Prompt completed with stopReason:', result.stopReason);
+				// Trigger onEnd callback when stream completes normally
+				this.messageHandlers.forEach(handler => handler({
+					type: 'end',
+				}));
 			}
 		} catch (error) {
 			new Notice(`Failed to send message: ${error}`);

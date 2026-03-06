@@ -26,6 +26,7 @@ export class IFlowChatView extends ItemView {
 	// Conversation management
 	private currentConversationId: string | null = null;
 	private conversationTitleEl: HTMLElement | null = null;
+	private isLoadingMessages = false; // 防止在加载期间重复加载
 
 	constructor(leaf: WorkspaceLeaf, plugin: IFlowPlugin, iflowService: IFlowService) {
 		super(leaf);
@@ -150,14 +151,36 @@ export class IFlowChatView extends ItemView {
 		}
 	}
 
+	private streamingTimeout: NodeJS.Timeout | null = null;
+
 	private async sendMessage() {
 		const content = this.textarea.value.trim();
-		if (!content || this.isStreaming) {
+
+		// Debug logging
+		console.log('[iFlow Chat] sendMessage called', {
+			content,
+			isStreaming: this.isStreaming,
+			currentConversationId: this.currentConversationId
+		});
+
+		if (!content) {
+			console.log('[iFlow Chat] Message blocked: empty content');
 			return;
+		}
+
+		// Force reset if stuck in streaming state
+		if (this.isStreaming) {
+			console.warn('[iFlow Chat] Force reset: was stuck in streaming state');
+			this.isStreaming = false;
+			if (this.streamingTimeout) {
+				clearTimeout(this.streamingTimeout);
+				this.streamingTimeout = null;
+			}
 		}
 
 		// Ensure we have a conversation
 		if (!this.currentConversationId) {
+			console.log('[iFlow Chat] Creating new conversation');
 			this.createNewConversation();
 		}
 
@@ -199,10 +222,33 @@ export class IFlowChatView extends ItemView {
 		this.currentMessage = '';
 		this.isStreaming = true;
 
+		console.log('[iFlow Chat] Starting streaming', {
+			userMsgId,
+			assistantMsgId,
+			isStreaming: this.isStreaming
+		});
+
+		// Set timeout to reset streaming state if onEnd is not called
+		this.streamingTimeout = setTimeout(() => {
+			console.warn('[iFlow Chat] Streaming timeout: forcing reset');
+			this.isStreaming = false;
+			this.streamingTimeout = null;
+		}, 60000); // 60 second timeout
+
 		// Scroll to bottom
 		if (this.plugin.settings.enableAutoScroll) {
 			this.scrollToBottom();
 		}
+
+		// Cleanup function
+		const cleanup = () => {
+			if (this.streamingTimeout) {
+				clearTimeout(this.streamingTimeout);
+				this.streamingTimeout = null;
+			}
+			this.isStreaming = false;
+			console.log('[iFlow Chat] Cleanup: streaming state reset');
+		};
 
 		// Send to iFlow
 		try {
@@ -223,7 +269,8 @@ export class IFlowChatView extends ItemView {
 					}
 				},
 				onEnd: () => {
-					this.isStreaming = false;
+					console.log('[iFlow Chat] onEnd called, setting isStreaming = false');
+					cleanup();
 
 					// Save assistant message to conversation
 					if (this.currentConversationId && this.currentMessage) {
@@ -232,14 +279,19 @@ export class IFlowChatView extends ItemView {
 							this.currentMessage
 						);
 					}
+
+					// Update UI meta info (message count, etc) after streaming ends
+					this.updateConversationUI();
 				},
 				onError: (error: string) => {
-					this.isStreaming = false;
+					console.log('[iFlow Chat] onError called', error);
+					cleanup();
 					this.updateMessage(assistantMsgId, `Error: ${error}`);
 				},
 			});
 		} catch (error) {
-			this.isStreaming = false;
+			console.log('[iFlow Chat] Exception in sendMessage', error);
+			cleanup();
 			this.updateMessage(assistantMsgId, `Error: ${error.message}`);
 		}
 	}
@@ -575,6 +627,22 @@ export class IFlowChatView extends ItemView {
 	}
 
 	private onConversationChange(): void {
+		// 防止在流式传输期间重新加载（会清空正在显示的消息）
+		if (this.isStreaming) {
+			console.log('[iFlow Chat] Skipping reload during streaming');
+			// 只更新元数据，不重新加载消息
+			this.updateConversationUI();
+			return;
+		}
+
+		// 防止重复加载
+		if (this.isLoadingMessages) {
+			console.log('[iFlow Chat] Already loading, skipping');
+			return;
+		}
+
+		this.isLoadingMessages = true;
+
 		const state = this.conversationStore.getState();
 		this.currentConversationId = state.currentConversationId;
 
@@ -597,6 +665,31 @@ export class IFlowChatView extends ItemView {
 		const meta = (this as any).conversationMeta as HTMLElement;
 		if (meta) {
 			this.updateConversationMeta(meta);
+		}
+
+		this.isLoadingMessages = false;
+	}
+
+	private updateConversationUI(): void {
+		// 只更新元数据（标题、消息数量等），不重新加载消息
+		const current = this.conversationStore.getCurrentConversation();
+		if (!current) return;
+
+		// Update title
+		if (this.conversationTitleEl) {
+			this.conversationTitleEl.textContent = current.title;
+		}
+
+		// Update meta
+		const meta = (this as any).conversationMeta as HTMLElement;
+		if (meta) {
+			this.updateConversationMeta(meta);
+		}
+
+		// Re-render list (to show updated message counts)
+		const list = (this as any).conversationList as HTMLElement;
+		if (list) {
+			this.renderConversationList(list);
 		}
 	}
 
