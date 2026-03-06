@@ -95,6 +95,11 @@ class AcpProtocol {
 					if (message.error) {
 						pending.reject(new Error(message.error.message));
 					} else {
+						// Check for end_turn in result
+						if (message.result?.stopReason === 'end_turn') {
+							// Notify that the stream is complete
+							console.log('[iFlow] Stream complete (end_turn)');
+						}
 						pending.resolve(message.result);
 					}
 				}
@@ -285,7 +290,7 @@ export class IFlowService {
 
 			// Handle session/update notifications (stream content)
 			if (notification.method === 'session/update') {
-				const update = notification.params;
+				const update = notification.params?.update;
 				console.log('[iFlow] Update type:', update?.sessionUpdate);
 				if (update && typeof update === 'object') {
 					const content = this.extractContentFromUpdate(update);
@@ -391,10 +396,15 @@ export class IFlowService {
 
 		// Send prompt request
 		try {
-			await this.protocol.sendRequest('session/prompt', {
+			const result = await this.protocol.sendRequest('session/prompt', {
 				sessionId: this.sessionId,
 				prompt: [{ type: 'text', text: prompt }],
 			});
+
+			// Check if the response indicates completion
+			if (result?.stopReason === 'end_turn' || result?.stopReason === 'max_turns') {
+				console.log('[iFlow] Prompt completed');
+			}
 		} catch (error) {
 			new Notice(`Failed to send message: ${error}`);
 			cleanup();
