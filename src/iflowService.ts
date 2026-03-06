@@ -126,10 +126,12 @@ export class IFlowService {
 	private isConnected: boolean = false;
 	private protocol: AcpProtocol | null = null;
 	private sessionId: string | null = null;
+	private app: any; // Obsidian App instance
 
-	constructor(port: number, timeout: number) {
+	constructor(port: number, timeout: number, app?: any) {
 		this.port = port;
 		this.timeout = timeout;
+		this.app = app;
 	}
 
 	async checkConnection(): Promise<boolean> {
@@ -244,9 +246,11 @@ export class IFlowService {
 			}
 		}
 
-		// Create new session
+		// Create new session - use user's home directory as workspace
+		// In browser, we can't access process, so use Obsidian's vault path
+		const cwd = (this.app as any)?.vault?.adapter?.basePath?.replace(/\/$/, '') || '/Users/jie';
 		const sessionResult = await this.protocol.sendRequest('session/new', {
-			cwd: '/',
+			cwd,
 			mcpServers: [],
 			settings: {},
 		}) as { sessionId?: string };

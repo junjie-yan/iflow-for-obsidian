@@ -31,7 +31,7 @@ export default class IFlowPlugin extends Plugin {
 		await this.loadSettings();
 
 		// Initialize iFlow service
-		this.iflowService = new IFlowService(this.settings.iflowPort, this.settings.iflowTimeout);
+		this.iflowService = new IFlowService(this.settings.iflowPort, this.settings.iflowTimeout, this.app);
 
 		// Register sidebar view
 		this.registerView(
