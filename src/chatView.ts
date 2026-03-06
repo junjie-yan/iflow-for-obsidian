@@ -174,6 +174,9 @@ export class IFlowChatView extends ItemView {
 				filePath: activeFile?.path,
 				fileContent,
 				selection,
+				model: this.currentModel,
+				mode: this.currentMode,
+				thinkingEnabled: this.thinkingEnabled,
 				onChunk: (chunk: string) => {
 					this.currentMessage += chunk;
 					this.updateMessage(assistantMsgId, this.currentMessage);
@@ -259,12 +262,18 @@ export class IFlowChatView extends ItemView {
 	private createModelSelector(container: HTMLElement): HTMLElement {
 		const selector = container.createDiv({ cls: 'iflow-model-selector' });
 
-		// Default models list (will be updated from iFlow CLI)
+		// Full models list (matching VS Code plugin)
 		const defaultModels = [
 			{ id: 'glm-4.7', name: 'GLM-4.7' },
 			{ id: 'glm-5', name: 'GLM-5' },
 			{ id: 'deepseek-v3.2-chat', name: 'DeepSeek-V3.2' },
+			{ id: 'iFlow-ROME-30BA3B', name: 'iFlow-ROME-30BA3B(Preview)' },
 			{ id: 'qwen3-coder-plus', name: 'Qwen3-Coder-Plus' },
+			{ id: 'kimi-k2-thinking', name: 'Kimi-K2-Thinking' },
+			{ id: 'minimax-m2.5', name: 'MiniMax-M2.5' },
+			{ id: 'minimax-m2.1', name: 'MiniMax-M2.1' },
+			{ id: 'kimi-k2-0905', name: 'Kimi-K2-0905' },
+			{ id: 'kimi-k2.5', name: 'Kimi-K2.5' },
 		];
 
 		this.availableModels = defaultModels;
@@ -274,7 +283,8 @@ export class IFlowChatView extends ItemView {
 			cls: 'iflow-model-btn ready',
 		});
 
-		const label = btn.createSpan({ cls: 'iflow-model-label', text: this.currentModel });
+		const currentModelObj = defaultModels.find(m => m.id === this.currentModel) || defaultModels[0];
+		const label = btn.createSpan({ cls: 'iflow-model-label', text: currentModelObj.name });
 		const chevron = btn.createDiv({ cls: 'iflow-model-chevron' });
 		chevron.innerHTML = `
 			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

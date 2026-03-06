@@ -42,6 +42,9 @@ export interface SendMessageOptions {
 	filePath?: string;
 	fileContent?: string;
 	selection?: string;
+	model?: string;
+	mode?: string;
+	thinkingEnabled?: boolean;
 	onChunk?: (chunk: string) => void;
 	onTool?: (tool: IFlowToolCall) => void;
 	onEnd?: () => void;
@@ -363,6 +366,47 @@ export class IFlowService {
 	async sendMessage(options: SendMessageOptions): Promise<void> {
 		if (!this.isConnected || !this.protocol || !this.sessionId) {
 			await this.connect();
+		}
+
+		// Apply runtime settings (mode, model, thinking) before sending prompt
+		if (options.mode) {
+			try {
+				await this.protocol.sendRequest('session/set_mode', {
+					sessionId: this.sessionId,
+					modeId: options.mode,
+				});
+				console.log(`[iFlow] Mode set to: ${options.mode}`);
+			} catch (error) {
+				console.warn(`[iFlow] Failed to set mode: ${error}`);
+			}
+		}
+
+		if (options.model) {
+			try {
+				await this.protocol.sendRequest('session/set_model', {
+					sessionId: this.sessionId,
+					modelId: options.model,
+				});
+				console.log(`[iFlow] Model set to: ${options.model}`);
+			} catch (error) {
+				console.warn(`[iFlow] Failed to set model: ${error}`);
+			}
+		}
+
+		if (options.thinkingEnabled !== undefined) {
+			try {
+				const thinkPayload: any = {
+					sessionId: this.sessionId,
+					thinkEnabled: options.thinkingEnabled,
+				};
+				if (options.thinkingEnabled) {
+					thinkPayload.thinkConfig = 'think';
+				}
+				await this.protocol.sendRequest('session/set_think', thinkPayload);
+				console.log(`[iFlow] Thinking set to: ${options.thinkingEnabled}`);
+			} catch (error) {
+				console.warn(`[iFlow] Failed to set thinking: ${error}`);
+			}
 		}
 
 		// Build prompt with context
