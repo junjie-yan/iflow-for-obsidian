@@ -30,6 +30,7 @@
 	gap: var(--spacing-sm, 8px);
 	flex: 1;
 	min-width: 0;
+	position: relative;
 }
 
 .iflow-conversation-trigger {
@@ -105,8 +106,8 @@
 	position: absolute;
 	top: 100%;
 	left: 0;
-	right: 0;
-	width: 100%;
+	width: auto;
+	min-width: 300px;
 	max-width: 400px;
 	max-height: 500px;
 	background: var(--background-secondary);
