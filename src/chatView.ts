@@ -530,7 +530,7 @@ export class IFlowChatView extends ItemView {
 		newBtn.onclick = () => this.createNewConversation();
 
 		// Conversation dropdown panel
-		const panel = selector.createDiv({ cls: 'iflow-conversation-panel' });
+		const panel = selector.createDiv({ cls: 'iflow-conversation-panel hidden' });
 
 		// Search box
 		const searchBox = panel.createDiv({ cls: 'iflow-conversation-search' });
