@@ -114,14 +114,14 @@
 	border-radius: 0 0 8px 8px;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 	z-index: 1000;
-	display: none;
+	display: flex;
 	flex-direction: column;
 	overflow: hidden;
 }
 
-.iflow-conversation-selector:hover .iflow-conversation-panel,
-.iflow-conversation-panel:focus-within {
-	display: flex;
+/* Hidden state for panel */
+.iflow-conversation-panel.hidden {
+	display: none;
 }
 
 .iflow-conversation-search {

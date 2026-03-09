@@ -1,3 +1,5 @@
+// 会话存储管理 - 支持版本控制、配额管理、导出导入
+
 export type ConversationMode = "default" | "yolo" | "plan" | "smart";
 
 export type ModelType =
@@ -35,24 +37,70 @@ export interface ConversationState {
 	conversations: Conversation[];
 }
 
-const STORAGE_KEY = "iflow-conversations";
+// 数据版本管理
+interface PersistedState extends ConversationState {
+	version: number;
+	createdAt: number;
+	updatedAt: number;
+}
+
+// 存储配额信息
+interface StorageQuotaInfo {
+	usedBytes: number;
+	totalBytes: number;
+	percentUsed: number;
+	approachingLimit: boolean; // 超过 80%
+	atLimit: boolean; // 超过 95%
+}
+
+const STORAGE_VERSION = 1;
+const MAX_STORAGE_BYTES = 4 * 1024 * 1024; // 4MB 限制（localStorage 通常是 5-10MB）
+const WARNING_THRESHOLD = 0.8; // 80% 警告
+const CRITICAL_THRESHOLD = 0.95; // 95% 严重警告
 
 export class ConversationStore {
 	private state: ConversationState;
 	private listeners: Set<() => void> = new Set();
+	private storageKey: string;
 
-	constructor() {
+	constructor(vaultPath?: string) {
+		// Vault 隔离存储：每个 vault 使用不同的存储 key
+		this.storageKey = vaultPath
+			? `iflow-conversations-${this.hashVaultPath(vaultPath)}`
+			: "iflow-conversations";
 		this.state = this.load();
+	}
+
+	// 生成 vault path 的哈希值用于存储 key
+	private hashVaultPath(path: string): string {
+		let hash = 0;
+		for (let i = 0; i < path.length; i++) {
+			const char = path.charCodeAt(i);
+			hash = ((hash << 5) - hash) + char;
+			hash = hash & hash; // Convert to 32bit integer
+		}
+		return Math.abs(hash).toString(36);
 	}
 
 	private load(): ConversationState {
 		try {
-			const data = localStorage.getItem(STORAGE_KEY);
+			const data = localStorage.getItem(this.storageKey);
 			if (data) {
-				return JSON.parse(data);
+				const parsed = JSON.parse(data);
+
+				// 版本迁移
+				if (parsed.version !== undefined) {
+					return this.migrate(parsed);
+				}
+
+				// 旧版本数据（无 version 字段）
+				return {
+					currentConversationId: parsed.currentConversationId,
+					conversations: parsed.conversations || [],
+				};
 			}
 		} catch (error) {
-			console.error("Failed to load conversations:", error);
+			console.error("[ConversationStore] Failed to load conversations:", error);
 		}
 		return {
 			currentConversationId: null,
@@ -60,17 +108,85 @@ export class ConversationStore {
 		};
 	}
 
+	// 数据版本迁移
+	private migrate(persisted: PersistedState): ConversationState {
+		const version = persisted.version || 0;
+
+		if (version < STORAGE_VERSION) {
+			console.log(`[ConversationStore] Migrating data from version ${version} to ${STORAGE_VERSION}`);
+			// 未来版本迁移逻辑在这里添加
+			// 例如：v1 -> v2 的字段转换
+		}
+
+		return {
+			currentConversationId: persisted.currentConversationId,
+			conversations: persisted.conversations || [],
+		};
+	}
+
 	private save(): void {
 		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+			const persisted: PersistedState = {
+				...this.state,
+				version: STORAGE_VERSION,
+				createdAt: Date.now(),
+				updatedAt: Date.now(),
+			};
+			const data = JSON.stringify(persisted);
+
+			// 检查存储配额
+			if (data.length > MAX_STORAGE_BYTES) {
+				console.warn("[ConversationStore] Storage exceeds limit, attempting cleanup...");
+				this.cleanupOldConversations();
+				// 再次尝试保存
+				const cleanedData = JSON.stringify({
+					...this.state,
+					version: STORAGE_VERSION,
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+				});
+				if (cleanedData.length > MAX_STORAGE_BYTES) {
+					throw new Error(`Storage size (${cleanedData.length} bytes) exceeds limit (${MAX_STORAGE_BYTES} bytes)`);
+				}
+			}
+
+			localStorage.setItem(this.storageKey, data);
 		} catch (error) {
-			console.error("Failed to save conversations:", error);
+			console.error("[ConversationStore] Failed to save conversations:", error);
+			// 可以在这里添加用户通知
+		}
+	}
+
+	// 清理旧会话以释放空间
+	private cleanupOldConversations(): void {
+		const conversations = [...this.state.conversations];
+		const originalCount = conversations.length;
+
+		// 按更新时间排序，保留最近的 50 个会话
+		conversations.sort((a, b) => b.updatedAt - a.updatedAt);
+		const kept = conversations.slice(0, 50);
+
+		if (kept.length < originalCount) {
+			console.log(`[ConversationStore] Cleaned up ${originalCount - kept.length} old conversations`);
+			this.state.conversations = kept;
+
+			// 如果当前会话被删除，切换到第一个可用会话
+			if (this.state.currentConversationId) {
+				const stillExists = kept.find(c => c.id === this.state.currentConversationId);
+				if (!stillExists) {
+					this.state.currentConversationId = kept[0]?.id || null;
+				}
+			}
 		}
 	}
 
 	private notify(): void {
 		this.listeners.forEach((listener) => listener());
 	}
+
+	// ============================================
+	// 公共 API
+	// ============================================
 
 	getState(): ConversationState {
 		return { ...this.state };
@@ -92,6 +208,32 @@ export class ConversationStore {
 		);
 	}
 
+	// 获取存储配额信息
+	getStorageQuota(): StorageQuotaInfo {
+		try {
+			const data = localStorage.getItem(this.storageKey);
+			const usedBytes = data ? new Blob([data]).size : 0;
+			const percentUsed = usedBytes / MAX_STORAGE_BYTES;
+
+			return {
+				usedBytes,
+				totalBytes: MAX_STORAGE_BYTES,
+				percentUsed,
+				approachingLimit: percentUsed >= WARNING_THRESHOLD,
+				atLimit: percentUsed >= CRITICAL_THRESHOLD,
+			};
+		} catch (error) {
+			console.error("[ConversationStore] Failed to calculate storage quota:", error);
+			return {
+				usedBytes: 0,
+				totalBytes: MAX_STORAGE_BYTES,
+				percentUsed: 0,
+				approachingLimit: false,
+				atLimit: false,
+			};
+		}
+	}
+
 	newConversation(
 		defaultModel: ModelType = "glm-4.7",
 		defaultMode: ConversationMode = "default",
@@ -99,7 +241,7 @@ export class ConversationStore {
 	): Conversation {
 		const current = this.getCurrentConversation();
 		const conversation: Conversation = {
-			id: `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+			id: `conv-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 			title: "New Conversation",
 			messages: [],
 			mode: current?.mode ?? defaultMode,
@@ -125,7 +267,7 @@ export class ConversationStore {
 			(c) => c.id === conversationId
 		);
 		if (!conversation) {
-			console.error(`Conversation ${conversationId} not found`);
+			console.error(`[ConversationStore] Conversation ${conversationId} not found`);
 			return;
 		}
 
@@ -174,7 +316,7 @@ export class ConversationStore {
 
 	addUserMessage(conversationId: string, content: string): Message {
 		const message: Message = {
-			id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+			id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 			role: "user",
 			content,
 			timestamp: Date.now(),
@@ -205,7 +347,7 @@ export class ConversationStore {
 
 	addAssistantMessage(conversationId: string, content: string): Message {
 		const message: Message = {
-			id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+			id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
 			role: "assistant",
 			content,
 			timestamp: Date.now(),
@@ -249,7 +391,6 @@ export class ConversationStore {
 	}
 
 	private generateTitle(firstMessage: string): string {
-		// Generate a title from the first user message (max 50 chars)
 		const trimmed = firstMessage.trim();
 		return trimmed.length > 50
 			? trimmed.substring(0, 47) + "..."
@@ -261,5 +402,122 @@ export class ConversationStore {
 			(c) => c.id === conversationId
 		);
 		return conversation?.messages || [];
+	}
+
+	// ============================================
+	// 导出/导入功能
+	// ============================================
+
+	// 导出为 JSON
+	exportToJSON(): string {
+		const exported = {
+			version: STORAGE_VERSION,
+			exportedAt: new Date().toISOString(),
+			conversations: this.state.conversations,
+			currentConversationId: this.state.currentConversationId,
+		};
+		return JSON.stringify(exported, null, 2);
+	}
+
+	// 导出为 Markdown
+	exportToMarkdown(conversationId?: string): string {
+		const conversationsToExport = conversationId
+			? this.state.conversations.filter(c => c.id === conversationId)
+			: this.state.conversations;
+
+		const mdLines: string[] = [];
+
+		conversationsToExport.forEach(conv => {
+			mdLines.push(`# ${conv.title}`);
+			mdLines.push("");
+			mdLines.push(`**Created:** ${new Date(conv.createdAt).toLocaleString()}`);
+			mdLines.push(`**Model:** ${conv.model}`);
+			mdLines.push(`**Mode:** ${conv.mode}`);
+			mdLines.push("");
+
+			conv.messages.forEach(msg => {
+				const role = msg.role === "user" ? "👤 **You**" : "🤖 **iFlow**";
+				mdLines.push(`## ${role}`);
+				mdLines.push("");
+				mdLines.push(msg.content);
+				mdLines.push("");
+			});
+
+			mdLines.push("---");
+			mdLines.push("");
+		});
+
+		return mdLines.join("\n");
+	}
+
+	// 从 JSON 导入
+	importFromJSON(jsonString: string): { success: boolean; message: string; imported?: number } {
+		try {
+			const imported = JSON.parse(jsonString);
+
+			if (!imported.conversations || !Array.isArray(imported.conversations)) {
+				return {
+					success: false,
+					message: "Invalid format: missing conversations array"
+				};
+			}
+
+			// 合并策略：添加到现有会话，避免 ID 冲突
+			let importedCount = 0;
+			const existingIds = new Set(this.state.conversations.map(c => c.id));
+
+			imported.conversations.forEach((conv: Conversation) => {
+				if (!existingIds.has(conv.id)) {
+					this.state.conversations.push(conv);
+					importedCount++;
+				}
+			});
+
+			this.save();
+			this.notify();
+
+			return {
+				success: true,
+				message: `Successfully imported ${importedCount} conversations`,
+				imported: importedCount
+			};
+		} catch (error) {
+			return {
+				success: false,
+				message: `Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`
+			};
+		}
+	}
+
+	// 清除所有数据
+	clearAll(): void {
+		this.state = {
+			currentConversationId: null,
+			conversations: [],
+		};
+		this.save();
+		this.notify();
+	}
+
+	// 获取统计信息
+	getStats(): {
+		totalConversations: number;
+		totalMessages: number;
+		oldestConversation?: Date;
+		newestConversation?: Date;
+	} {
+		const conversations = this.state.conversations;
+		const totalMessages = conversations.reduce((sum, c) => sum + c.messages.length, 0);
+
+		const timestamps = conversations.map(c => c.createdAt).filter(t => t > 0);
+		const oldest = timestamps.length > 0 ? Math.min(...timestamps) : undefined;
+		const newest = timestamps.length > 0 ? Math.max(...timestamps) : undefined;
+
+		return {
+			totalConversations: conversations.length,
+			totalMessages,
+			oldestConversation: oldest ? new Date(oldest) : undefined,
+			newestConversation: newest ? new Date(newest) : undefined,
+		};
 	}
 }

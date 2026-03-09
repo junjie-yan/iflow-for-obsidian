@@ -27,12 +27,16 @@ export class IFlowChatView extends ItemView {
 	private currentConversationId: string | null = null;
 	private conversationTitleEl: HTMLElement | null = null;
 	private isLoadingMessages = false; // 防止在加载期间重复加载
+	private showConversationPanel = false; // Panel visibility state
 
 	constructor(leaf: WorkspaceLeaf, plugin: IFlowPlugin, iflowService: IFlowService) {
 		super(leaf);
 		this.plugin = plugin;
 		this.iflowService = iflowService;
-		this.conversationStore = new ConversationStore();
+
+		// 获取 vault 路径用于会话隔离存储
+		const vaultPath = this.plugin.getVaultPath();
+		this.conversationStore = new ConversationStore(vaultPath);
 
 		// Subscribe to conversation changes
 		this.conversationStore.subscribe(() => this.onConversationChange());
@@ -498,6 +502,10 @@ export class IFlowChatView extends ItemView {
 		// Current conversation trigger
 		const trigger = selector.createEl('button', {
 			cls: 'iflow-conversation-trigger',
+			attr: {
+				'aria-expanded': 'false',
+				'aria-haspopup': 'listbox',
+			},
 		});
 
 		this.conversationTitleEl = trigger.createSpan({
@@ -539,21 +547,47 @@ export class IFlowChatView extends ItemView {
 		this.updateConversationMeta(meta);
 
 		// Store references for later updates
+		(this as any).conversationTrigger = trigger;
 		(this as any).conversationPanel = panel;
 		(this as any).conversationList = list;
 		(this as any).conversationMeta = meta;
+
+		// Trigger click handler - toggle panel visibility
+		trigger.onclick = (e) => {
+			e.stopPropagation();
+			this.toggleConversationPanel();
+		};
+
+		// Search input handler
+		searchInput.addEventListener('input', (e) => {
+			const target = e.target as HTMLInputElement;
+			this.renderConversationList(list, target.value);
+		});
+
+		// Close panel when clicking outside
+		document.addEventListener('click', (e) => {
+			if (this.showConversationPanel &&
+			    !selector.contains(e.target as Node)) {
+				this.closeConversationPanel();
+			}
+		});
 	}
 
-	private renderConversationList(listContainer: HTMLElement): void {
+	private renderConversationList(listContainer: HTMLElement, searchQuery: string = ''): void {
 		listContainer.empty();
 
 		const state = this.conversationStore.getState();
+
+		// Filter conversations by search query
+		const filteredConversations = state.conversations.filter(c =>
+			c.title.toLowerCase().includes(searchQuery.toLowerCase())
+		);
 
 		// Group conversations by date
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
-		const todayConversations = state.conversations.filter(c => {
+		const todayConversations = filteredConversations.filter(c => {
 			const date = new Date(c.updatedAt);
 			return date >= today;
 		});
@@ -569,10 +603,10 @@ export class IFlowChatView extends ItemView {
 			});
 		}
 
-		if (state.conversations.length === 0) {
+		if (filteredConversations.length === 0) {
 			listContainer.createDiv({
 				cls: 'iflow-conversation-empty',
-				text: 'No conversations yet',
+				text: searchQuery ? 'No conversations found' : 'No conversations yet',
 			});
 		}
 	}
@@ -702,43 +736,53 @@ export class IFlowChatView extends ItemView {
 	}
 
 	private createNewConversation(): void {
-		const conversation = this.conversationStore.newConversation(
+		// Close panel when creating new conversation
+		this.closeConversationPanel();
+
+		// Create new conversation via store - this will trigger onConversationChange
+		this.conversationStore.newConversation(
 			this.currentModel as any,
 			this.currentMode as any,
 			this.thinkingEnabled
 		);
 
-		this.currentConversationId = conversation.id;
-		this.messages = [];
-		this.messagesContainer.empty();
+		// Note: onConversationChange will handle the UI updates
+	}
 
-		// Reset streaming state
-		this.isStreaming = false;
-		this.currentMessage = '';
+	private toggleConversationPanel(): void {
+		this.showConversationPanel = !this.showConversationPanel;
+		this.updateConversationPanelVisibility();
+	}
 
-		// Show welcome message
-		this.addWelcomeMessage();
+	private closeConversationPanel(): void {
+		this.showConversationPanel = false;
+		this.updateConversationPanelVisibility();
+	}
 
-		// Update title
-		if (this.conversationTitleEl) {
-			this.conversationTitleEl.textContent = conversation.title;
+	private updateConversationPanelVisibility(): void {
+		const trigger = (this as any).conversationTrigger as HTMLElement;
+		const panel = (this as any).conversationPanel as HTMLElement;
+
+		if (trigger) {
+			trigger.setAttribute('aria-expanded', this.showConversationPanel ? 'true' : 'false');
 		}
 
-		// Re-render list
-		const list = (this as any).conversationList as HTMLElement;
-		if (list) {
-			this.renderConversationList(list);
-		}
-
-		// Update meta
-		const meta = (this as any).conversationMeta as HTMLElement;
-		if (meta) {
-			this.updateConversationMeta(meta);
+		if (panel) {
+			if (this.showConversationPanel) {
+				panel.removeClass('hidden');
+				// Focus search input when opening
+				const searchInput = panel.querySelector('.iflow-conversation-search input') as HTMLInputElement;
+				searchInput?.focus();
+			} else {
+				panel.addClass('hidden');
+			}
 		}
 	}
 
 	private switchConversation(conversationId: string): void {
 		this.conversationStore.switchConversation(conversationId);
+		// Close panel after switching
+		this.closeConversationPanel();
 		// onConversationChange will be called automatically
 	}
 
