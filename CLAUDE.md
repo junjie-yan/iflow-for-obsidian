@@ -150,6 +150,88 @@ private scrollToBottom(): void {
 }
 ```
 
+### Layout Structure (Flexbox)
+
+The chat interface uses a strict flexbox hierarchy to ensure proper scrolling:
+
+```css
+/* Root container - controls overflow */
+.iflow-chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;  /* Prevent container scroll */
+}
+
+/* Chat view - flexible child */
+.iflow-chat {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex: 1;
+    min-height: 0;  /* Critical for flex child */
+}
+
+/* Messages - scrollable area */
+.iflow-messages {
+    flex: 1 1 auto;  /* Grow to fill space */
+    overflow-y: auto;  /* Only messages scroll */
+    min-height: 0;  /* Allows shrinking */
+}
+
+/* Input - fixed at bottom */
+.iflow-input-container {
+    flex: 0 0 auto;  /* Don't grow or shrink */
+    max-height: 50vh;
+    overflow-y: auto;  /* Internal scroll if needed */
+}
+```
+
+**Key principles:**
+- Container: `overflow: hidden` prevents double scrollbars
+- Messages: `flex: 1 1 auto` + `overflow-y: auto` creates independent scroll
+- Input: `flex: 0 0 auto` keeps it fixed at bottom
+- Always add `min-height: 0` to flexible children
+
+### Dropdown Panel Positioning
+
+The conversation panel uses absolute positioning to appear below the trigger button:
+
+```css
+/* Parent container - MUST have position: relative */
+.iflow-conversation-selector {
+    position: relative;  /* Creates positioning context */
+}
+
+/* Trigger button */
+.iflow-conversation-trigger {
+    /* Regular button styles */
+}
+
+/* Panel - positioned relative to parent */
+.iflow-conversation-panel {
+    position: absolute;  /* Position relative to .iflow-conversation-selector */
+    top: 100%;          /* Immediately below parent */
+    left: 0;            /* Align left edge */
+    width: auto;        /* Adapt to content */
+    min-width: 300px;   /* Minimum width */
+    max-width: 400px;   /* Maximum width */
+    z-index: 1000;      /* Above other content */
+}
+
+/* Hidden state */
+.iflow-conversation-panel.hidden {
+    display: none;
+}
+```
+
+**Critical points:**
+- Parent MUST have `position: relative` for absolute child positioning
+- `top: 100%` places panel immediately below parent
+- Use `width: auto` with min/max constraints for responsive sizing
+- Always initialize panel with `hidden` class to prevent flash on load
+- Toggle `hidden` class and `aria-expanded` attribute for accessibility
+
 ## Data Flow
 
 ### Sending a Message
@@ -362,6 +444,54 @@ trigger.onclick = (e) => {
 };
 ```
 
+### Bug #5: Panel visible by default
+
+**Symptom:** Panel shows permanently on page load
+
+**Root Cause:** Panel created without `hidden` class
+
+**Fix:** Add `hidden` class on panel creation:
+```typescript
+const panel = selector.createDiv({ cls: 'iflow-conversation-panel hidden' });
+```
+
+### Bug #6: Panel positioned at page bottom
+
+**Symptom:** Panel appears at bottom of page instead of below trigger button
+
+**Root Cause:** Missing `position: relative` on parent container `.iflow-conversation-selector`
+
+**Fix:** Add CSS positioning:
+```css
+.iflow-conversation-selector {
+    position: relative;  /* Critical for absolute child positioning */
+}
+
+.iflow-conversation-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: auto;
+    min-width: 300px;
+    max-width: 400px;
+}
+```
+
+### Bug #7: Input container not fixed at bottom
+
+**Symptom:** Input area scrolls with messages instead of staying fixed
+
+**Root Cause:** Incorrect flexbox properties on input container
+
+**Fix:** Set proper flex properties:
+```css
+.iflow-input-container {
+    flex: 0 0 auto;  /* Don't grow or shrink */
+    max-height: 50vh;
+    overflow-y: auto;
+}
+```
+
 ## Development Workflow
 
 ### Making Changes
@@ -382,6 +512,9 @@ Always test:
 - ✅ Conversation switching works
 - ✅ Panel toggles on click
 - ✅ Panel closes when clicking outside
+- ✅ Panel appears below trigger button (not at page bottom)
+- ✅ Input container stays fixed at bottom
+- ✅ Messages scroll independently from input
 
 ### Testing Conversation Management
 
@@ -509,6 +642,10 @@ gh release create v0.x.x main.js manifest.json styles.css \
 - **Check browser console logs** - they reveal state issues
 - **Use vault-isolated storage** - each vault has independent data
 - **Monitor storage quota** - auto-cleanup prevents overflow
+- **Panel requires relative parent** - absolute positioning only works with `position: relative` parent
+- **Initialize panel as hidden** - add `hidden` class on creation to prevent flash
+- **Flexbox needs min-height: 0** - critical for flexible children to shrink properly
+- **Input container must be flex: 0 0 auto** - prevents it from growing or shrinking
 
 ## When Adding Features
 
