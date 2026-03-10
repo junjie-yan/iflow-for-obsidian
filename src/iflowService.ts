@@ -763,7 +763,7 @@ export class IFlowService {
 		let prompt = options.content;
 
 		// Detect if user wants to create a canvas file
-		const wantsCanvas = /canvas|思维导图|流程图|导图|可视化|graph|map|flowchart/i.test(prompt);
+		const wantsCanvas = /canvas|思维导图|流程图|导图|可视化|graph|map|flowchart|路线图|roadmap|学习图|知识图谱/i.test(prompt);
 
 		if (wantsCanvas) {
 			// Add Canvas format guidance when user wants to create visual content
