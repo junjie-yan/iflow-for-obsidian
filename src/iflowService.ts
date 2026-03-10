@@ -1,5 +1,40 @@
 import { Notice } from 'obsidian';
 
+// JSON Canvas types and interfaces
+interface CanvasNode {
+	id: string;
+	type: 'text' | 'file' | 'link' | 'group';
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	color?: string;
+	text?: string;
+	file?: string;
+	subpath?: string;
+	url?: string;
+	label?: string;
+	background?: string;
+	backgroundStyle?: 'cover' | 'ratio' | 'repeat';
+}
+
+interface CanvasEdge {
+	id: string;
+	fromNode: string;
+	toNode: string;
+	fromSide?: 'top' | 'right' | 'bottom' | 'left';
+	toSide?: 'top' | 'right' | 'bottom' | 'left';
+	fromEnd?: 'none' | 'arrow';
+	toEnd?: 'none' | 'arrow';
+	color?: string;
+	label?: string;
+}
+
+interface CanvasData {
+	nodes?: CanvasNode[];
+	edges?: CanvasEdge[];
+}
+
 // JSON-RPC 2.0 interfaces
 interface JsonRpcRequest {
 	jsonrpc: '2.0';
@@ -380,7 +415,31 @@ export class IFlowService {
 				const vaultPath = this.getVaultPath();
 				const relativePath = this.getAbsolutePath(params.path, vaultPath);
 
-				// Check if file already exists
+				// Special handling for canvas files
+				if (this.isCanvasFile(relativePath)) {
+					console.log('[iFlow] Creating canvas file:', relativePath);
+					// Normalize canvas content to ensure valid JSON structure
+					const canvasContent = this.normalizeCanvasContent(params.content);
+
+					// Check if file already exists
+					const existingFile = this.app.vault.getAbstractFileByPath(relativePath);
+					if (existingFile) {
+						const file = this.app.vault.getFileByPath(relativePath);
+						if (file) {
+							await this.app.vault.modify(file, canvasContent);
+							console.log('[iFlow] Canvas file modified successfully:', relativePath);
+						} else {
+							await this.app.vault.adapter.write(relativePath, canvasContent);
+							console.log('[iFlow] Canvas file written successfully (via adapter):', relativePath);
+						}
+					} else {
+						await this.app.vault.create(relativePath, canvasContent);
+						console.log('[iFlow] Canvas file created successfully:', relativePath);
+					}
+					return null;
+				}
+
+				// Regular file handling
 				const existingFile = this.app.vault.getAbstractFileByPath(relativePath);
 
 				if (existingFile) {
@@ -437,6 +496,59 @@ export class IFlowService {
 		}
 
 		return filePath;
+	}
+
+	/**
+	 * Check if a file is a canvas file
+	 */
+	private isCanvasFile(filePath: string): boolean {
+		return filePath.endsWith('.canvas');
+	}
+
+	/**
+	 * Generate a basic canvas file structure for AI to use as template
+	 */
+	private generateBasicCanvas(content?: string): string {
+		const canvasData: CanvasData = {
+			nodes: [
+				{
+					id: this.generateId(),
+					type: 'text',
+					x: 0,
+					y: 0,
+					width: 250,
+					height: 100,
+					text: content || '新节点 - 双击编辑文本'
+				}
+			],
+			edges: []
+		};
+		return JSON.stringify(canvasData, null, '\t');
+	}
+
+	/**
+	 * Generate a random ID for canvas nodes/edges
+	 */
+	private generateId(): string {
+		return Math.random().toString(36).substring(2, 15);
+	}
+
+	/**
+	 * Try to parse and validate canvas JSON, if fails return valid basic structure
+	 */
+	private normalizeCanvasContent(content: string): string {
+		try {
+			const parsed = JSON.parse(content);
+			// Basic validation - check if it has nodes or edges array
+			if (parsed && (parsed.nodes || parsed.edges)) {
+				return JSON.stringify(parsed, null, '\t');
+			}
+		} catch (e) {
+			// Content is not valid JSON, create a canvas with the content as text
+			console.log('[iFlow] Invalid canvas JSON, creating basic canvas with content');
+		}
+		// Return basic canvas structure with content as first node
+		return this.generateBasicCanvas(content);
 	}
 
 	private handleIncomingMessage(data: string): void {

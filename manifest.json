@@ -1,7 +1,7 @@
 {
 	"id": "iflow-for-obsidian",
 	"name": "iFlow for Obsidian",
-	"version": "0.6.7",
+	"version": "0.6.8",
 	"minAppVersion": "1.8.9",
 	"description": "Embed iFlow CLI as an AI collaborator in your Obsidian vault. Full agentic capabilities: file read/write, search, bash commands, and multi-step workflows.",
 	"author": "junjie-yan",
