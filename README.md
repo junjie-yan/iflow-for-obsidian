@@ -16,6 +16,10 @@
   - 自动创建新文件
   - 修改现有文件
   - 与 Obsidian 的缓存、事件和元数据系统完全集成
+- **Canvas 支持**：AI 可以创建和编辑 Obsidian Canvas 文件
+  - 智能检测 Canvas 创建意图（思维导图、流程图、可视化等）
+  - 自动注入 JSON Canvas 1.0 格式指导
+  - 支持多种节点类型（文本、文件、链接、分组）
 
 ### 📝 会话管理
 - **历史记录保存**：所有会话自动保存，可随时切换
@@ -57,6 +61,37 @@
 - [AI 理解文档](CLAUDE.md) - 给 Claude AI 阅读的项目文档
 
 ## 🔄 更新日志
+
+### v0.6.9 (2026-03-10)
+
+#### ✨ 新功能
+- **智能 Canvas 格式指导**：自动检测用户创建可视化内容的意图并注入 JSON Canvas 格式指导
+  - 检测关键词：canvas、思维导图、流程图、导图、可视化、graph、map、flowchart
+  - 自动提供完整的 JSON Canvas 1.0 格式规范
+  - 包含节点类型、边连接、布局建议和完整示例
+- 弥补 iFlow CLI 与 Claude Code CLI 的差距，在插件层面提供 Canvas 格式能力
+
+#### 📝 技术细节
+- 正则表达式匹配用户提示词中的可视化意图
+- 动态生成中文 Canvas 格式指导（节点类型、边、颜色、布局）
+- 与 v0.6.8 的 Canvas 文件处理配合，实现完整的 Canvas 创建流程
+
+### v0.6.8 (2026-03-10)
+
+#### ✨ 新功能
+- **Obsidian Canvas 文件格式支持**
+  - 完整支持 JSON Canvas 1.0 格式
+  - 支持文本节点、文件节点、链接节点和分组节点
+  - 支持节点间的连接边（edges）
+  - 自动验证和规范化 Canvas JSON 结构
+- AI 现在可以创建和编辑 `.canvas` 文件
+
+#### 🔧 技术实现
+- 添加 JSON Canvas 类型定义（CanvasNode、CanvasEdge、CanvasData）
+- `isCanvasFile()`：检测文件是否为 Canvas 格式
+- `normalizeCanvasContent()`：验证和规范化 Canvas JSON
+- `generateBasicCanvas()`：生成基础 Canvas 结构
+- 在 `fs/write_text_file` 中特殊处理 Canvas 文件
 
 ### v0.6.7 (2026-03-10)
 
@@ -284,6 +319,44 @@ AI：我来重新排序 TODO 列表...
 - 所有文件操作都通过 Obsidian API，确保与 Obsidian 的缓存、事件和元数据系统完全集成
 - 文件修改会触发 Obsidian 的文件变更事件，其他插件可以监听这些变化
 - AI 会自动创建不存在的目录结构
+
+#### Canvas 文件操作
+
+AI 可以智能识别并创建 Obsidian Canvas 文件：
+
+#### 创建思维导图
+```
+你：帮我创建一个关于深度学习的思维导图，保存为 deep-learning-mindmap.canvas
+
+AI：好的，我来为你创建一个深度学习思维导图 Canvas...
+✅ Canvas 文件已创建：deep-learning-mindmap.canvas
+```
+
+#### 创建流程图
+```
+你：创建一个 Git 工作流程图
+
+AI：我来创建一个 Git 工作流的可视化流程图...
+✅ 流程图已保存为 git-workflow.canvas
+```
+
+#### 自动检测可视化需求
+插件会自动检测以下关键词并注入 Canvas 格式指导：
+- 中文：canvas、思维导图、流程图、导图、可视化
+- 英文：canvas、graph、map、flowchart、diagram
+
+当检测到这些关键词时，AI 会自动：
+1. 接收 JSON Canvas 1.0 格式规范
+2. 了解节点类型（text、file、link、group）
+3. 学习如何创建节点间的连接边
+4. 应用推荐的布局和颜色方案
+
+**Canvas 格式特性**：
+- 完整支持 JSON Canvas 1.0 开放格式
+- 支持 4 种节点类型：文本、文件、链接、分组
+- 支持节点间的有向连接（带箭头）
+- 支持 6 种颜色主题
+- 自动验证和规范化 JSON 结构
 
 ### 会话管理
 

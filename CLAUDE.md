@@ -1,5 +1,6 @@
 # CLAUDE.md - iFlow for Obsidian
 
+
 ## Project Overview
 
 iFlow for Obsidian - An Obsidian plugin that embeds iFlow CLI as a sidebar chat interface. The vault directory becomes iFlow's working directory, giving it full agentic capabilities: file read/write, bash commands, and multi-step workflows.
@@ -647,6 +648,147 @@ gh release create v0.x.x main.js manifest.json styles.css \
 - **Flexbox needs min-height: 0** - critical for flexible children to shrink properly
 - **Input container must be flex: 0 0 auto** - prevents it from growing or shrinking
 
+## Canvas File Support
+
+### JSON Canvas 1.0 Format
+
+Obsidian Canvas files use the JSON Canvas 1.0 open format:
+
+```typescript
+// Canvas file structure (iflowService.ts lines 3-36)
+interface CanvasNode {
+    id: string;              // Unique identifier
+    type: 'text' | 'file' | 'link' | 'group';
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color?: string;          // "1"-"6" for color themes
+    text?: string;           // For text nodes
+    file?: string;           // For file nodes (relative path)
+    subpath?: string;        // For file nodes (anchor/heading)
+    url?: string;            // For link nodes
+    label?: string;          // For link nodes
+    background?: string;     // For group nodes
+    backgroundStyle?: 'cover' | 'ratio' | 'repeat';
+}
+
+interface CanvasEdge {
+    id: string;
+    fromNode: string;        // Source node ID
+    toNode: string;          // Target node ID
+    fromSide?: 'top' | 'right' | 'bottom' | 'left';
+    toSide?: 'top' | 'right' | 'bottom' | 'left';
+    fromEnd?: 'none' | 'arrow';
+    toEnd?: 'none' | 'arrow';
+    color?: string;
+    label?: string;
+}
+
+interface CanvasData {
+    nodes?: CanvasNode[];
+    edges?: CanvasEdge[];
+}
+```
+
+### Canvas File Detection
+
+```typescript
+// Detect canvas files (iflowService.ts line 504)
+private isCanvasFile(filePath: string): boolean {
+    return filePath.endsWith('.canvas');
+}
+```
+
+### Canvas Content Normalization
+
+```typescript
+// Normalize and validate canvas content (iflowService.ts lines 515-528)
+private normalizeCanvasContent(content: string): string {
+    try {
+        const parsed = JSON.parse(content);
+        if (parsed && (parsed.nodes || parsed.edges)) {
+            return JSON.stringify(parsed, null, '\t');
+        }
+    } catch (e) {
+        console.log('[iFlow] Invalid canvas JSON, creating basic canvas with content');
+    }
+    return this.generateBasicCanvas(content);
+}
+```
+
+### Intelligent Canvas Format Guidance
+
+When the user wants to create visual content, the plugin automatically injects Canvas format guidance:
+
+```typescript
+// Auto-detect Canvas intent (iflowService.ts lines 696-768)
+const wantsCanvas = /canvas|思维导图|流程图|导图|可视化|graph|map|flowchart/i.test(prompt);
+
+if (wantsCanvas) {
+    const canvasGuidance = `
+== Obsidian Canvas 文件格式指导 ==
+
+当创建 .canvas 文件时，请遵循 JSON Canvas 1.0 格式：
+
+文件结构：
+{
+  "nodes": [...],
+  "edges": [...]
+}
+
+[... detailed Canvas format instructions ...]
+`;
+    prompt = canvasGuidance + '\n\n' + prompt;
+}
+```
+
+**Detection keywords**:
+- Chinese: canvas、思维导图、流程图、导图、可视化
+- English: canvas、graph、map、flowchart、diagram
+
+### Canvas File Writing
+
+Canvas files receive special handling in `fs/write_text_file`:
+
+```typescript
+// Canvas file handling (iflowService.ts lines 407-468)
+this.protocol.onServerMethod('fs/write_text_file', async (_id: number, params: any) => {
+    const vaultPath = this.getVaultPath();
+    const relativePath = this.getAbsolutePath(params.path, vaultPath);
+
+    // Special handling for canvas files
+    if (this.isCanvasFile(relativePath)) {
+        console.log('[iFlow] Creating canvas file:', relativePath);
+        const canvasContent = this.normalizeCanvasContent(params.content);
+
+        const existingFile = this.app.vault.getAbstractFileByPath(relativePath);
+        if (existingFile) {
+            const file = this.app.vault.getFileByPath(relativePath);
+            if (file) {
+                await this.app.vault.modify(file, canvasContent);
+            }
+        } else {
+            await this.app.vault.create(relativePath, canvasContent);
+        }
+        return null;
+    }
+
+    // Regular file handling...
+});
+```
+
+### Canvas vs Claudian Architecture
+
+| Feature | iFlow for Obsidian | Claudian |
+|---------|-------------------|----------|
+| **CLI** | iFlow CLI | Claude Code CLI |
+| **SDK** | Direct WebSocket | Claude Agent SDK |
+| **Skills** | Plugin-level guidance | obsidian-skills in CLI |
+| **Canvas support** | Auto-detect + inject format | Built into CLI |
+
+**Key insight**: iFlow CLI doesn't have obsidian-skills like Claude Code CLI, so Canvas format guidance must be provided at the plugin level through intelligent prompt injection.
+
 ## When Adding Features
 
 1. **Check existing patterns first** - don't reinvent
@@ -657,3 +799,12 @@ gh release create v0.x.x main.js manifest.json styles.css \
 6. **Check vault isolation** - does each vault have independent data?
 7. **Add debug logs** - help future debugging
 8. **Update documentation** - keep CLAUDE.md and README.md current
+
+### Canvas-Specific Considerations
+
+When adding Canvas-related features:
+- **Validate JSON structure** - always use `normalizeCanvasContent()` to ensure valid Canvas format
+- **Detect file type** - use `isCanvasFile()` before processing
+- **Inject format guidance** - add to prompt guidance if AI needs to understand Canvas format
+- **Test with Obsidian** - open generated `.canvas` files in Obsidian to verify they render correctly
+- **Consider iFlow CLI limitations** - iFlow doesn't have obsidian-skills, so format help must be at plugin level

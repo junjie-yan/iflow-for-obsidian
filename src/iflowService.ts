@@ -692,6 +692,81 @@ export class IFlowService {
 
 		// Build prompt with context
 		let prompt = options.content;
+
+		// Detect if user wants to create a canvas file
+		const wantsCanvas = /canvas|思维导图|流程图|导图|可视化|graph|map|flowchart/i.test(prompt);
+
+		if (wantsCanvas) {
+			// Add Canvas format guidance when user wants to create visual content
+			const canvasGuidance = `
+== Obsidian Canvas 文件格式指导 ==
+
+当创建 .canvas 文件时，请遵循 JSON Canvas 1.0 格式：
+
+文件结构：
+\`\`\`json
+{
+  "nodes": [
+    {
+      "id": "唯一ID",
+      "type": "text|file|link|group",
+      "x": 0,
+      "y": 0,
+      "width": 250,
+      "height": 100,
+      "text": "节点内容（type=text时）",
+      "file": "文件路径（type=file时）",
+      "url": "链接地址（type=link时）",
+      "label": "分组标签（type=group时）",
+      "color": "1-6"  // 可选：1=红, 2=橙, 3=黄, 4=绿, 5=青, 6=紫
+    }
+  ],
+  "edges": [
+    {
+      "id": "唯一ID",
+      "fromNode": "起始节点ID",
+      "toNode": "目标节点ID",
+      "fromSide": "top|right|bottom|left",
+      "toSide": "top|right|bottom|left",
+      "label": "连线标签"
+    }
+  ]
+}
+\`\`\`
+
+节点类型说明：
+- text: 文本节点，显示 Markdown 格式内容
+- file: 引用 vault 中的文件
+- link: 外部 URL 链接
+- group: 分组容器，可包含其他节点
+
+布局建议：
+- 主节点放在中心 (x=0, y=0 附近)
+- 子节点向四周扩散
+- 相关节点之间用 edges 连接
+- 使用颜色区分不同类型的内容
+
+示例：
+\`\`\`json
+{
+  "nodes": [
+    {"id":"main", "type":"text", "x":0, "y":0, "width":250, "height":80, "text":"## 主题\\n主要内容", "color":"1"},
+    {"id":"sub1", "type":"text", "x":300, "y":-100, "width":200, "height":60, "text":"子主题1", "color":"4"},
+    {"id":"sub2", "type":"text", "x":300, "y":100, "width":200, "height":60, "text":"子主题2", "color":"4"}
+  ],
+  "edges": [
+    {"id":"e1", "fromNode":"main", "toNode":"sub1", "label":"关联"},
+    {"id":"e2", "fromNode":"main", "toNode":"sub2", "label":"关联"}
+  ]
+}
+\`\`\
+
+请直接输出完整的 JSON 格式 canvas 文件内容，不要添加额外的解释文字。
+
+`;
+			prompt = canvasGuidance + '\n\n' + prompt;
+		}
+
 		if (options.filePath || options.fileContent) {
 			prompt = `User is working on: ${options.filePath || 'unnamed file'}\n\n`;
 			if (options.selection) {
