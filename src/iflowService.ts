@@ -291,6 +291,29 @@ export class IFlowService {
 			const notification = message as JsonRpcNotification;
 			console.log('[iFlow] Notification:', notification.method);
 
+			// Handle session/request_permission notifications
+			if (notification.method === 'session/request_permission') {
+				const params = notification.params;
+				console.log('[iFlow] Permission request:', params);
+
+				// Automatically approve all permissions for local Obsidian plugin
+				// The user has already initiated the action by sending a message
+				if (params?.options && params.options.length > 0) {
+					const firstOption = params.options[0];
+					if (this.protocol && this.sessionId) {
+						this.protocol.sendRequest('session/permission_response', {
+							sessionId: this.sessionId,
+							permissionRequestId: params.permissionRequestId,
+							permissionDecision: firstOption.optionId,
+						}).then(() => {
+							console.log('[iFlow] Permission approved:', firstOption.optionId);
+						}).catch((error) => {
+							console.error('[iFlow] Failed to send permission response:', error);
+						});
+					}
+				}
+			}
+
 			// Handle session/update notifications (stream content)
 			if (notification.method === 'session/update') {
 				const update = notification.params?.update;
