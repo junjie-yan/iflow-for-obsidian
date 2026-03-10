@@ -351,10 +351,19 @@ export class IFlowService {
 		// Create new session - use user's home directory as workspace
 		// In browser, we can't access process, so use Obsidian's vault path
 		const cwd = (this.app as any)?.vault?.adapter?.basePath?.replace(/\/$/, '') || '/Users/jie';
+
+		// Build session settings similar to VSCode plugin
+		// IMPORTANT: permission_mode is required for tool calling to work
+		const sessionSettings: Record<string, unknown> = {
+			permission_mode: 'default', // Required for tools to work
+			append_system_prompt: '', // Clear any prior system prompt
+			add_dirs: [cwd], // Allow access to vault directory
+		};
+
 		const sessionResult = await this.protocol.sendRequest('session/new', {
 			cwd,
 			mcpServers: [],
-			settings: {},
+			settings: sessionSettings,
 		}) as { sessionId?: string };
 
 		if (!sessionResult.sessionId) {
@@ -485,12 +494,18 @@ export class IFlowService {
 	 * If the path is absolute, make it relative to vault
 	 */
 	private getAbsolutePath(filePath: string, vaultPath: string): string {
+		// If the path starts with vault path (with leading slash), extract the relative part
+		if (filePath.startsWith(vaultPath + '/')) {
+			filePath = filePath.substring(vaultPath.length + 1); // +1 to skip the slash
+			return filePath;
+		}
+
 		// Remove leading slash if present (Obsidian paths don't start with /)
 		if (filePath.startsWith('/')) {
 			filePath = filePath.substring(1);
 		}
 
-		// If the path starts with vault path, extract the relative part
+		// If the path starts with vault path (without leading slash), extract the relative part
 		if (filePath.startsWith(vaultPath)) {
 			filePath = filePath.substring(vaultPath.length);
 			if (filePath.startsWith('/')) {
@@ -748,11 +763,27 @@ export class IFlowService {
 		if (wantsCanvas) {
 			// Add Canvas format guidance when user wants to create visual content
 			const canvasGuidance = `
-== Obsidian Canvas 文件格式指导 ==
+## 🚨 CRITICAL: 必须调用工具创建文件！
 
-当创建 .canvas 文件时，请遵循 JSON Canvas 1.0 格式：
+用户想要创建 Canvas 文件。你必须：
 
-文件结构：
+### ✅ 正确做法（必须执行）：
+1. 立即调用 \`fs/write_text_file\` 工具
+2. 文件名：从用户请求中提取（例如："未命名 2.canvas"）
+3. 文件内容：完整的 JSON Canvas 1.0 格式
+
+### ❌ 禁止行为：
+- **绝对不要**在聊天中输出 JSON 代码块
+- **绝对不要**告诉用户"你可以手动创建文件"
+- **绝对不要**说"请复制以下内容"
+
+### 🛠️ 你有这些工具可用：
+- \`fs/write_text_file(path, content)\` - 创建或覆盖文件
+- \`fs/read_text_file(path)\` - 读取文件内容
+- **你必须使用这些工具来创建文件，而不是输出文本！**
+
+### 📋 JSON Canvas 1.0 格式：
+
 \`\`\`json
 {
   "nodes": [
@@ -764,10 +795,7 @@ export class IFlowService {
       "width": 250,
       "height": 100,
       "text": "节点内容（type=text时）",
-      "file": "文件路径（type=file时）",
-      "url": "链接地址（type=link时）",
-      "label": "分组标签（type=group时）",
-      "color": "1-6"  // 可选：1=红, 2=橙, 3=黄, 4=绿, 5=青, 6=紫
+      "color": "1-6"
     }
   ],
   "edges": [
@@ -783,52 +811,23 @@ export class IFlowService {
 }
 \`\`\`
 
-节点类型说明：
-- text: 文本节点，显示 Markdown 格式内容
-- file: 引用 vault 中的文件
-- link: 外部 URL 链接
-- group: 分组容器，可包含其他节点
+### 💡 完整工作流程示例：
 
-布局建议：
-- 主节点放在中心 (x=0, y=0 附近)
+用户请求："创建一个思维导图"
+你的操作：
+1. 调用 fs/write_text_file 工具
+2. 参数：{"path": "思维导图.canvas", "content": "{\\"nodes\\":[...],\\"edges\\":[...]}"}
+3. 完成后告诉用户："Canvas 文件已创建成功！"
+
+### 📝 布局建议：
+- 主节点放在中心 (x=0, y=0)
 - 子节点向四周扩散
-- 相关节点之间用 edges 连接
 - 使用颜色区分不同类型的内容
+- 用 edges 连接相关节点
 
-示例：
-\`\`\`json
-{
-  "nodes": [
-    {"id":"main", "type":"text", "x":0, "y":0, "width":250, "height":80, "text":"## 主题\\n主要内容", "color":"1"},
-    {"id":"sub1", "type":"text", "x":300, "y":-100, "width":200, "height":60, "text":"子主题1", "color":"4"},
-    {"id":"sub2", "type":"text", "x":300, "y":100, "width":200, "height":60, "text":"子主题2", "color":"4"}
-  ],
-  "edges": [
-    {"id":"e1", "fromNode":"main", "toNode":"sub1", "label":"关联"},
-    {"id":"e2", "fromNode":"main", "toNode":"sub2", "label":"关联"}
-  ]
-}
-\`\`\
+---
 
-## ⚠️ 重要：你必须使用工具创建文件！
-
-当用户要求创建 Canvas 文件时，你必须：
-
-1. **调用工具创建文件**：使用 \`fs/write_text_file\` 工具
-2. **工具参数格式**：
-   - \`path\`: 文件路径（例如：\`Go语言学习路径.canvas\`）
-   - \`content\`: 完整的 JSON Canvas 1.0 格式内容（字符串格式）
-
-3. **调用示例**：
-   - 调用工具：\`fs/write_text_file\`
-   - 参数：\`{"path": "Go语言学习路径.canvas", "content": "{\\"nodes\\": [...], \\"edges\\": [...]}"\`
-
-4. **不要输出 JSON 文本**：
-   - ❌ 不要在聊天中输出 JSON 内容
-   - ❌ 不要让用户手动创建文件
-   - ✅ 直接调用工具创建文件
-
-**记住**：你有能力直接创建文件，请使用 \`fs/write_text_file\` 工具来完成文件创建！
+**现在处理用户的请求，立即调用工具创建文件！**
 
 `;
 			prompt = canvasGuidance + '\n\n' + prompt;
