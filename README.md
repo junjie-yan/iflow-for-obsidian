@@ -1,3 +1,4 @@
+
 # iFlow for Obsidian
 
 > 将 iFlow CLI 嵌入 Obsidian，在你的笔记库中实现 AI 协作。完整的能力：文件读写、搜索、bash 命令和多步骤工作流。

@@ -356,7 +356,12 @@ export class IFlowService {
 		// IMPORTANT: permission_mode is required for tool calling to work
 		const sessionSettings: Record<string, unknown> = {
 			permission_mode: 'default', // Required for tools to work
-			append_system_prompt: '', // Clear any prior system prompt
+			append_system_prompt: `IMPORTANT: When generating structured content like learning roadmaps, diagrams, knowledge graphs, or similar content:
+1. Use the fs/write_text_file tool to create a file automatically
+2. For visual roadmaps and diagrams, create an Obsidian Canvas file (.canvas extension)
+3. Do NOT output large JSON structures as text - create files instead
+4. Use descriptive filenames based on the content (e.g., "golang-learning-roadmap.canvas")
+5. After creating the file, provide a brief summary of what was created`,
 			add_dirs: [cwd], // Allow access to vault directory
 		};
 
